@@ -1,0 +1,24 @@
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-docker:
+    name: Update changed images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Log into registry
+        run: echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ secrets.DOCKER_LOGIN }} --password-stdin
+
+      - name: Build and push updated images
+        run: |
+          changed=$(git diff --dirstat=files,0 HEAD~1 | awk '{ print $2 }' | grep -v github)
+          for dir_name in $(ls -d */ | sed s'/.$//')
+          do
+            if echo $changed | grep -w $dir_name > /dev/null; then
+              (cd $dir_name && docker build -t tronwallet/$dir_name . && docker push tronwallet/$dir_name)
+            fi
+          done
